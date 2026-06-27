@@ -1,3 +1,4 @@
+use clap::Parser;
 use crate::parser::load_spec;
 use crate::cache::{load_cache, save_cache};
 use crate::errors::McpcError;
@@ -7,8 +8,32 @@ use crate::planner;
 use crate::executor;
 use crate::manifest;
 use crate::plugins;
+use notify::{Watcher, RecursiveMode, EventKind};
+use std::sync::mpsc;
+use std::time::Duration;
 
-pub fn execute(remote: Option<String>, dry_run: bool) -> Result<(), McpcError> {
+#[derive(Parser)]
+pub struct BuildArgs {
+    #[arg(short, long)]
+    pub remote: Option<String>,
+
+    #[arg(short, long)]
+    pub dry_run: bool,
+
+    #[arg(short, long)]
+    pub watch: bool,
+}
+
+pub fn execute(args: BuildArgs) -> Result<(), McpcError> {
+    if args.watch {
+        run_watch_loop(&args)?;
+        Ok(())
+    } else {
+        run_build(args.remote.clone(), args.dry_run)
+    }
+}
+
+fn run_build(remote: Option<String>, dry_run: bool) -> Result<(), McpcError> {
     tracing::info!("[mcpc] build started");
 
     let spec = load_spec("mcp.spec.json")?;
@@ -69,6 +94,46 @@ pub fn execute(remote: Option<String>, dry_run: bool) -> Result<(), McpcError> {
     }
 
     tracing::info!("[mcpc] build complete");
+    Ok(())
+}
+
+fn run_watch_loop(args: &BuildArgs) -> Result<(), McpcError> {
+    // Initial build
+    if let Err(e) = run_build(args.remote.clone(), args.dry_run) {
+        tracing::error!("[mcpc] initial build failed: {}", e);
+    }
+
+    let (tx, rx) = mpsc::channel();
+    let mut watcher = notify::recommended_watcher(tx).map_err(|e| McpcError::Io(std::io::Error::new(std::io::ErrorKind::Other, e)))?;
+
+    watcher.watch(std::path::Path::new("mcp.spec.json"), RecursiveMode::NonRecursive)
+        .map_err(|e| McpcError::Io(std::io::Error::new(std::io::ErrorKind::Other, e)))?;
+        
+    let templates_path = std::path::Path::new(".mcpc/templates");
+    if templates_path.exists() {
+        watcher.watch(templates_path, RecursiveMode::Recursive)
+            .map_err(|e| McpcError::Io(std::io::Error::new(std::io::ErrorKind::Other, e)))?;
+    }
+
+    tracing::info!("[mcpc] watching for changes...");
+
+    for res in rx {
+        match res {
+            Ok(event) => {
+                // Ignore Access/Any events, mostly look for Modify/Create/Remove
+                match event.kind {
+                    EventKind::Modify(_) | EventKind::Create(_) | EventKind::Remove(_) => {
+                        tracing::info!("[mcpc] detected change, rebuilding...");
+                        if let Err(e) = run_build(args.remote.clone(), args.dry_run) {
+                            tracing::error!("[mcpc] build failed: {}", e);
+                        }
+                    },
+                    _ => {}
+                }
+            }
+            Err(e) => tracing::error!("[mcpc] watch error: {:?}", e),
+        }
+    }
 
     Ok(())
 }

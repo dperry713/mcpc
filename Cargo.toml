@@ -17,8 +17,10 @@ tokio = { version = "1", features = ["rt-multi-thread", "macros", "full"] }
 reqwest = { version = "0.13", features = ["blocking", "json"] }
 clap = { version = "4.5", features = ["derive"] }
 miette = { version = "7", features = ["fancy"] }
-handlebars = "6.0"
-notify = { version = "8", optional = true }
+handlebars = { version = "6.0", features = ["dir_source"] }
+jsonschema = "0.17"
+rust-embed = "8.0"
+notify = { version = "8", features = ["serde"] }
 
 [dev-dependencies]
 assert_cmd = "2"
@@ -27,4 +29,7 @@ tempfile = "3"
 
 [features]
 default = []
-watch = ["dep:notify"]
+
+[workspace]
+resolver = "2"
+members = ["mcpc-gui/src-tauri"]

@@ -7,8 +7,16 @@ use axum::{
 };
 use std::net::SocketAddr;
 use tokio::runtime::Runtime;
+use clap::Parser;
 
-pub fn run_worker(port: u16) -> Result<(), McpcError> {
+#[derive(Parser)]
+pub struct WorkerArgs {
+    #[arg(short, long, default_value = "50051")]
+    pub port: u16,
+}
+
+pub fn run_worker(args: WorkerArgs) -> Result<(), McpcError> {
+    let port = args.port;
     let rt = Runtime::new().map_err(McpcError::Io)?;
     
     rt.block_on(async {
