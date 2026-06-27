@@ -1,54 +1,43 @@
-use std::env;
+use clap::{Parser, Subcommand};
 use crate::commands::{build, run, validate, clean, worker};
 use crate::errors::McpcError;
 
+#[derive(Parser)]
+#[command(name = "mcpc")]
+#[command(about = "The MCP Compiler (mcpc) for generating and orchestrating cloud-native architectures.", long_about = None)]
+pub struct Cli {
+    #[command(subcommand)]
+    pub command: Commands,
+}
+
+#[derive(Subcommand)]
+pub enum Commands {
+    /// Builds the MCP specification into rust modules and docker/helm configurations
+    Build {
+        /// Optional URL of a remote builder node (e.g. http://127.0.0.1:50051)
+        #[arg(long)]
+        remote: Option<String>,
+    },
+    /// Runs the default module or orchestration
+    Run,
+    /// Validates the mcp.spec.json against schemas and constraints
+    Validate,
+    /// Cleans the local cache and generated outputs
+    Clean,
+    /// Starts a background worker node for distributed compilation on port 50051
+    Worker,
+}
+
 pub fn run_cli() -> Result<(), McpcError> {
-    let args: Vec<String> = env::args().collect();
+    let cli = Cli::parse();
 
-    if args.len() < 2 {
-        print_help();
-        return Ok(());
-    }
-
-    match args[1].as_str() {
-        "build" => {
-            let mut remote = None;
-            let mut i = 2;
-            while i < args.len() {
-                if args[i] == "--remote" && i + 1 < args.len() {
-                    remote = Some(args[i + 1].clone());
-                    i += 2;
-                } else {
-                    i += 1;
-                }
-            }
-            build::execute(remote)?
-        },
-        "run" => run::execute()?,
-        "validate" => validate::execute()?,
-        "clean" => clean::execute()?,
-        "worker" => worker::run_worker(50051)?,
-        "--help" | "-h" => print_help(),
-        _ => {
-            tracing::error!("Unknown command: {}", args[1]);
-            print_help();
-        }
+    match cli.command {
+        Commands::Build { remote } => build::execute(remote)?,
+        Commands::Run => run::execute()?,
+        Commands::Validate => validate::execute()?,
+        Commands::Clean => clean::execute()?,
+        Commands::Worker => worker::run_worker(50051)?,
     }
 
     Ok(())
-}
-
-fn print_help() {
-    println!(
-        r#"
-mcpc CLI
-
-Usage:
-  mcpc build [--remote <URL>]
-  mcpc run
-  mcpc validate
-  mcpc clean
-  mcpc worker
-"#
-    );
 }

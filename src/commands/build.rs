@@ -48,9 +48,20 @@ pub fn execute(remote: Option<String>) -> Result<(), McpcError> {
     
     manifest::generate_manifest(&plan)?;
 
-    let all_modules = plan.build.iter().chain(plan.skip.iter()).copied();
-    let compose_content = crate::compose::render_docker_compose(all_modules);
+    let all_modules: Vec<_> = plan.build.iter().chain(plan.skip.iter()).copied().collect();
+    
+    // Generate docker-compose.yml
+    let compose_content = crate::compose::render_docker_compose(all_modules.iter().copied());
     std::fs::write("automata-mcp/docker-compose.yml", compose_content)
+        .map_err(|e| McpcError::Io(e))?;
+
+    // Generate workspace Cargo.toml
+    let mut workspace_toml = String::from("[workspace]\nresolver = \"2\"\nmembers = [\n");
+    for m in &all_modules {
+        workspace_toml.push_str(&format!("    \"{}\",\n", m.name));
+    }
+    workspace_toml.push_str("]\n");
+    std::fs::write("automata-mcp/Cargo.toml", workspace_toml)
         .map_err(|e| McpcError::Io(e))?;
 
     tracing::info!("[mcpc] build complete");

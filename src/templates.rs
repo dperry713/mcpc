@@ -1,69 +1,76 @@
 use crate::schema::Module;
+use minijinja::render;
+use std::collections::HashMap;
 
 pub fn render_main_rs(module: &Module) -> String {
     let module_type = module.module_type.as_deref().unwrap_or("default");
-
+    
     match module_type {
         "api" => {
-            format!(
-r#"use axum::{{routing::get, Router}};
+            render!(
+r#"use axum::{routing::get, Router};
 
 #[tokio::main]
-async fn main() {{
-    let app = Router::new().route("/health", get(|| async {{ "OK" }}));
-    println!("API '{}' listening on 0.0.0.0:3000");
+async fn main() {
+    let app = Router::new().route("/health", get(|| async { "OK" }));
+    println!("API '{{ name }}' listening on 0.0.0.0:3000");
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
     axum::serve(listener, app).await.unwrap();
-}}
-"#, module.name
+}
+"#, name => module.name
             )
         }
         "worker" => {
-            format!(
-r#"use tokio::time::{{sleep, Duration}};
+            render!(
+r#"use tokio::time::{sleep, Duration};
 
 #[tokio::main]
-async fn main() {{
-    println!("Worker '{}' starting...");
-    loop {{
-        println!("Worker '{}' heartbeat...");
+async fn main() {
+    println!("Worker '{{ name }}' starting...");
+    loop {
+        println!("Worker '{{ name }}' heartbeat...");
         sleep(Duration::from_secs(5)).await;
-    }}
-}}
-"#, module.name, module.name
+    }
+}
+"#, name => module.name
             )
         }
         "agent" => {
-            format!(
-r#"fn main() {{
-    println!("Agent '{}' initialized.");
-}}
-"#, module.name
+            render!(
+r#"fn main() {
+    println!("Agent '{{ name }}' initialized.");
+}
+"#, name => module.name
             )
         }
         _ => {
-            format!(
-r#"fn main() {{
-    println!("Running module: {}");
-}}
-"#, module.name
+            render!(
+r#"fn main() {
+    println!("Running module: {{ name }}");
+}
+"#, name => module.name
             )
         }
     }
 }
 
 pub fn render_cargo_toml(module: &Module) -> String {
-    let mut toml = format!(
-        "[package]\nname = \"{}\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\n[dependencies]\n",
-        module.name
+    let module_type = module.module_type.as_deref().unwrap_or("default");
+    let mut toml = render!(
+r#"[package]
+name = "{{ name }}"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+"#, name => module.name
     );
 
     for dep in &module.dependencies {
-        toml.push_str(&format!("{} = {{ path = \"../{}\" }}\n", dep, dep));
+        toml.push_str(&render!(r#"{{ dep }} = { path = "../{{ dep }}" }"#, dep => dep));
+        toml.push('\n');
     }
 
-    let module_type = module.module_type.as_deref().unwrap_or("default");
-    
     match module_type {
         "api" => {
             toml.push_str("tokio = { version = \"1.0\", features = [\"full\"] }\n");
@@ -77,8 +84,9 @@ pub fn render_cargo_toml(module: &Module) -> String {
 
     toml
 }
+
 pub fn render_dockerfile(module: &Module) -> String {
-    format!(
+    render!(
 r#"FROM rust:1.77 as builder
 WORKDIR /usr/src/app
 COPY . .
@@ -86,13 +94,11 @@ RUN cargo build --release
 
 FROM debian:bullseye-slim
 RUN apt-get update && rm -rf /var/lib/apt/lists/*
-COPY --from=builder /usr/src/app/target/release/{} /usr/local/bin/{}
-CMD ["{}"]
-"#, module.name, module.name, module.name
+COPY --from=builder /usr/src/app/target/release/{{ name }} /usr/local/bin/{{ name }}
+CMD ["{{ name }}"]
+"#, name => module.name
     )
 }
-
-use std::collections::HashMap;
 
 pub fn render_helm_chart(module: &Module) -> HashMap<String, String> {
     let mut files = HashMap::new();
@@ -100,63 +106,63 @@ pub fn render_helm_chart(module: &Module) -> HashMap<String, String> {
 
     files.insert(
         "charts/Chart.yaml".into(),
-        format!(
+        render!(
 r#"apiVersion: v2
-name: {}
-description: A Helm chart for {}
+name: {{ name }}
+description: A Helm chart for {{ name }}
 type: application
 version: 0.1.0
 appVersion: "1.0.0"
-"#, module.name, module.name
+"#, name => module.name
         )
     );
 
     files.insert(
         "charts/values.yaml".into(),
-        format!(
+        render!(
 r#"replicaCount: 1
 image:
-  repository: {}
+  repository: {{ name }}
   pullPolicy: IfNotPresent
   tag: "latest"
-"#, module.name
+"#, name => module.name
         )
     );
 
     files.insert(
         "charts/templates/deployment.yaml".into(),
-        format!(
+        render!(
 r#"apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{{{ include "{}.fullname" . }}}}
+  name: {{ "{{" }} include "{{ name }}.fullname" . {{ "}}" }}
   labels:
-    app.kubernetes.io/name: {{{{ include "{}.name" . }}}}
+    app.kubernetes.io/name: {{ "{{" }} include "{{ name }}.name" . {{ "}}" }}
 spec:
-  replicas: {{{{ .Values.replicaCount }}}}
+  replicas: {{ "{{" }} .Values.replicaCount {{ "}}" }}
   selector:
     matchLabels:
-      app.kubernetes.io/name: {{{{ include "{}.name" . }}}}
+      app.kubernetes.io/name: {{ "{{" }} include "{{ name }}.name" . {{ "}}" }}
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: {{{{ include "{}.name" . }}}}
+        app.kubernetes.io/name: {{ "{{" }} include "{{ name }}.name" . {{ "}}" }}
     spec:
       containers:
-        - name: {{{{ .Chart.Name }}}}
-          image: "{{{{ .Values.image.repository }}}}:{{{{ .Values.image.tag }}}}"
-"#, module.name, module.name, module.name, module.name
+        - name: {{ "{{" }} .Chart.Name {{ "}}" }}
+          image: "{{ "{{" }} .Values.image.repository {{ "}}" }}:{{ "{{" }} .Values.image.tag {{ "}}" }}"
+"#, name => module.name
         )
     );
 
     if module_type == "api" {
         files.insert(
             "charts/templates/service.yaml".into(),
-            format!(
+            render!(
 r#"apiVersion: v1
 kind: Service
 metadata:
-  name: {{{{ include "{}.fullname" . }}}}
+  name: {{ "{{" }} include "{{ name }}.fullname" . {{ "}}" }}
 spec:
   type: ClusterIP
   ports:
@@ -165,8 +171,8 @@ spec:
       protocol: TCP
       name: http
   selector:
-    app.kubernetes.io/name: {{{{ include "{}.name" . }}}}
-"#, module.name, module.name
+    app.kubernetes.io/name: {{ "{{" }} include "{{ name }}.name" . {{ "}}" }}
+"#, name => module.name
             )
         );
     }
