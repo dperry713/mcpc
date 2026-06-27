@@ -1,0 +1,18 @@
+version: '3.8'
+services:
+  control-plane:
+    build: ./control-plane
+  agent:
+    build: ./agent
+    depends_on:
+      - control-plane
+  gateway:
+    build: ./gateway
+    ports:
+      - "3000:3000"
+    depends_on:
+      - control-plane
+  background-job:
+    build: ./background-job
+    depends_on:
+      - agent

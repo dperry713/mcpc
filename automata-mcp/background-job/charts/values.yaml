@@ -1,0 +1,5 @@
+replicaCount: 1
+image:
+  repository: background-job
+  pullPolicy: IfNotPresent
+  tag: "latest"

@@ -1,0 +1,31 @@
+{
+  "project": "automata",
+  "modules": [
+    {
+      "name": "control-plane",
+      "type": "agent",
+      "entry": null,
+      "features": ["logging"],
+      "dependencies": []
+    },
+    {
+      "name": "agent",
+      "type": "agent",
+      "entry": null,
+      "features": ["logging"],
+      "dependencies": ["control-plane"]
+    },
+    {
+      "name": "gateway",
+      "type": "api",
+      "features": ["http"],
+      "dependencies": ["control-plane"]
+    },
+    {
+      "name": "background-job",
+      "type": "worker",
+      "features": ["cron"],
+      "dependencies": ["agent"]
+    }
+  ]
+}
