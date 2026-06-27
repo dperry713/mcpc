@@ -21,6 +21,8 @@ handlebars = { version = "6.0", features = ["dir_source"] }
 jsonschema = "0.17"
 rust-embed = "8.0"
 notify = { version = "8", features = ["serde"] }
+sha2 = "0.10"
+wasmi = "0.36"
 
 [dev-dependencies]
 assert_cmd = "2"

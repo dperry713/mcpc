@@ -1,7 +1,6 @@
 use crate::schema::Module;
 use handlebars::{Handlebars, DirectorySourceOptions};
 use rust_embed::RustEmbed;
-use std::collections::HashMap;
 use serde_json::json;
 use std::path::Path;
 use crate::errors::McpcError;
@@ -81,8 +80,8 @@ pub fn render_dockerfile(module: &Module) -> Result<String, McpcError> {
     engine.render("dockerfile.hbs", &data)
 }
 
-pub fn render_helm_chart(module: &Module) -> Result<HashMap<String, String>, McpcError> {
-    let mut files = HashMap::new();
+pub fn render_helm_chart(module: &Module) -> Result<std::collections::BTreeMap<String, String>, McpcError> {
+    let mut files = std::collections::BTreeMap::new();
     let engine = TemplateEngine::new()?;
     
     let data = json!({

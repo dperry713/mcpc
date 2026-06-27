@@ -1,7 +1,7 @@
 use crate::planner::BuildPlan;
 use crate::errors::McpcError;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::fs;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -10,12 +10,12 @@ pub struct Manifest {
     pub version: u32,
     pub timestamp: u64,
     pub modules: Vec<String>,
-    pub hashes: HashMap<String, String>,
+    pub hashes: BTreeMap<String, String>,
 }
 
 pub fn generate_manifest(plan: &BuildPlan) -> Result<(), McpcError> {
     let mut modules = Vec::new();
-    let mut hashes = HashMap::new();
+    let mut hashes = BTreeMap::new();
 
     for (name, hash) in &plan.new_cache {
         modules.push(name.clone());

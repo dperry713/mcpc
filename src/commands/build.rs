@@ -10,7 +10,6 @@ use crate::manifest;
 use crate::plugins;
 use notify::{Watcher, RecursiveMode, EventKind};
 use std::sync::mpsc;
-use std::time::Duration;
 
 #[derive(Parser)]
 pub struct BuildArgs {

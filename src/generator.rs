@@ -1,12 +1,12 @@
 use crate::schema::Module;
 use crate::errors::McpcError;
 use crate::templates;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
-pub type ModuleOutput = HashMap<String, String>;
+pub type ModuleOutput = BTreeMap<String, String>;
 
 pub fn generate_module(module: &Module) -> Result<ModuleOutput, McpcError> {
-    let mut output = HashMap::new();
+    let mut output = BTreeMap::new();
 
     let main_rs_path = format!("{}/src/main.rs", module.name);
     let main_rs_content = templates::render_main_rs(module)?;

@@ -1,20 +1,21 @@
 use crate::schema::{MCPSpec, Module};
 use crate::errors::McpcError;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet};
 
 pub fn build_graph(spec: &MCPSpec) -> Result<Vec<&Module>, McpcError> {
-    let mut module_map = HashMap::new();
+    let mut module_map = BTreeMap::new();
     for module in &spec.modules {
         module_map.insert(module.name.clone(), module);
     }
 
-    let mut visited = HashSet::new();
-    let mut visiting = HashSet::new();
+    let mut visited = BTreeSet::new();
+    let mut visiting = BTreeSet::new();
     let mut sorted = Vec::new();
 
-    for module in &spec.modules {
-        if !visited.contains(&module.name) {
-            dfs(&module.name, &module_map, &mut visited, &mut visiting, &mut sorted)?;
+    // Iterate in deterministic sorted name order
+    for name in module_map.keys() {
+        if !visited.contains(name) {
+            dfs(name, &module_map, &mut visited, &mut visiting, &mut sorted)?;
         }
     }
 
@@ -23,9 +24,9 @@ pub fn build_graph(spec: &MCPSpec) -> Result<Vec<&Module>, McpcError> {
 
 fn dfs<'a>(
     node: &str,
-    module_map: &HashMap<String, &'a Module>,
-    visited: &mut HashSet<String>,
-    visiting: &mut HashSet<String>,
+    module_map: &BTreeMap<String, &'a Module>,
+    visited: &mut BTreeSet<String>,
+    visiting: &mut BTreeSet<String>,
     sorted: &mut Vec<&'a Module>,
 ) -> Result<(), McpcError> {
     if visiting.contains(node) {
@@ -38,7 +39,11 @@ fn dfs<'a>(
     visiting.insert(node.to_string());
 
     if let Some(&module) = module_map.get(node) {
-        for dep in &module.dependencies {
+        // Traverse dependencies in deterministic sorted order
+        let mut sorted_deps = module.dependencies.clone();
+        sorted_deps.sort();
+
+        for dep in &sorted_deps {
             if !module_map.contains_key(dep) {
                 return Err(McpcError::Build(format!("Module '{}' depends on unknown module '{}'", node, dep)));
             }

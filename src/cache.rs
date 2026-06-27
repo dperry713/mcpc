@@ -1,16 +1,16 @@
 use crate::errors::McpcError;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::fs;
 
 const CACHE_PATH: &str = "automata-mcp/.mcpc/cache.json";
 
-pub type Cache = HashMap<String, String>;
+pub type Cache = BTreeMap<String, String>;
 
 pub fn load_cache() -> Cache {
     if let Ok(data) = fs::read_to_string(CACHE_PATH) {
         serde_json::from_str(&data).unwrap_or_default()
     } else {
-        HashMap::new()
+        BTreeMap::new()
     }
 }
 
