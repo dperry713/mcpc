@@ -30,6 +30,22 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "publisher": "Automata Ecosystem",
+    "shortDescription": "MCPC Visual Editor",
+    "longDescription": "The interactive dashboard for designing and building distributed agent and service platforms.",
+    "category": "DeveloperTool",
+    "copyright": "2026 Automata",
+    "windows": {
+      "wix": {
+        "language": "en-US",
+        "installMode": "perMachine"
+      }
+    },
+    "linux": {
+      "deb": {
+        "depends": ["webkit2gtk-4.1"]
+      }
+    }
   }
 }

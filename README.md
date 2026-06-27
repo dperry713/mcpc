@@ -54,7 +54,7 @@ mcpc --help
 
 ### 2. The GUI Dashboard
 
-To run the interactive Visual Editor dashboard:
+To run the interactive Visual Editor dashboard in development mode:
 
 ```bash
 cd mcpc-gui
@@ -62,6 +62,18 @@ npm install
 npm run tauri dev
 ```
 *(On first run, Cargo will compile the Tauri backend which may take a few minutes. Subsequent runs will be nearly instant).*
+
+### 3. Generate Install Wizards (Production)
+
+MCPC includes built-in configurations to automatically generate highly professional Install Wizards for your current operating system (MSI/EXE for Windows, DMG for macOS, DEB/AppImage for Linux).
+
+To package the GUI into a native installer:
+
+```bash
+cd mcpc-gui
+npm run build:installers
+```
+The finished installers will be output to `mcpc-gui/src-tauri/target/release/bundle/`.
 
 ---
 
