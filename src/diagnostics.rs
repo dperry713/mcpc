@@ -1,18 +1,9 @@
-use tracing::{error, warn, info};
+use tracing::{warn, info};
 
 pub struct Diagnostic {
     pub message: String,
     pub file: Option<String>,
     pub help: Option<String>,
-}
-
-pub fn report_error(err: &dyn std::error::Error) {
-    error!("❌ Error: {}", err);
-    let mut source = err.source();
-    while let Some(s) = source {
-        error!("  Caused by: {}", s);
-        source = s.source();
-    }
 }
 
 pub fn report_diagnostic_warning(diag: &Diagnostic) {

@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ open }} include "{{ name }}.fullname" . {{ close }}
+  labels:
+    app.kubernetes.io/name: {{ open }} include "{{ name }}.name" . {{ close }}
+spec:
+  replicas: {{ open }} .Values.replicaCount {{ close }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ open }} include "{{ name }}.name" . {{ close }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ open }} include "{{ name }}.name" . {{ close }}
+    spec:
+      containers:
+        - name: {{ open }} .Chart.Name {{ close }}
+          image: "{{ open }} .Values.image.repository {{ close }}:{{ open }} .Values.image.tag {{ close }}"

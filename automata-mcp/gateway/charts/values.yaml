@@ -1,5 +1,0 @@
-replicaCount: 1
-image:
-  repository: gateway
-  pullPolicy: IfNotPresent
-  tag: "latest"

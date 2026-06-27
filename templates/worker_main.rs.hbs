@@ -1,0 +1,10 @@
+use tokio::time::{sleep, Duration};
+
+#[tokio::main]
+async fn main() {
+    println!("Worker '{{ name }}' starting...");
+    loop {
+        println!("Worker '{{ name }}' heartbeat...");
+        sleep(Duration::from_secs(5)).await;
+    }
+}

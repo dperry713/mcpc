@@ -14,4 +14,5 @@ pub mod planner;
 pub mod templates;
 pub mod executor;
 pub mod manifest;
-pub mod plugins;pub mod compose;
+pub mod plugins;
+pub mod compose;

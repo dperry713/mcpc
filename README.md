@@ -1,96 +1,115 @@
-# MCP Compiler (mcpc)
+# mcpc - MCP Compiler
 
-The MCP Compiler (`mcpc`) is a powerful, deterministic tool for generating and orchestrating cloud-native backend architectures from a declarative specification. It compiles a single `mcp.spec.json` into distributed rust microservices, complete with infrastructure-as-code manifests.
+`mcpc` is the Model Context Protocol Compiler for generating and orchestrating cloud-native architectures. It takes a declarative specification (`mcp.spec.json`) and generates complete Rust module scaffolding, Dockerfiles, Helm charts, and a robust cargo workspace.
 
-## Features
-- **DAG Compilation**: Resolves dependencies using a Directed Acyclic Graph to ensure accurate build order.
-- **Incremental Caching**: Only rebuilds modules that have changed, based on deep hashing of AST definitions.
-- **Distributed Execution**: Built-in `worker` daemon allows compilation jobs to be dispatched to remote build nodes.
-- **Infrastructure-as-Code**: Dynamically generates `Dockerfile`, Helm Charts, and `docker-compose.yml`.
-- **Plugin System**: JSON-RPC plugin architecture for hooking into validation and compilation phases.
+## Motivation
+Manually maintaining boilerplate for agents, APIs, and background workers in cloud architectures is tedious and prone to configuration drift. `mcpc` ensures your microservices are structured uniformly, generating best-practice scaffolding so you can focus on building features.
 
-## Installation
-Ensure you have Rust and Cargo installed, then build:
+## Capabilities
+
+- **Declarative Infrastructure**: Define your entire service topology in `mcp.spec.json`.
+- **Advanced Templating**: Uses Handlebars for flexible templating. Includes production-ready defaults embedded directly in the binary, with support for local project overrides in `.mcpc/templates/`.
+- **Incremental Builds**: Fast, content-addressable caching ensures we only rebuild modules when their definition, features, or template source code changes.
+- **Plugin Ecosystem**: Extensible pre-validation and post-build hooks (support for Python, JS, or Webhook plugins).
+- **Professional Diagnostics**: Beautiful, rich terminal diagnostics via `miette` for configuration and compilation errors.
+- **Strict Schema Validation**: Built-in Draft-7 JSON Schema enforcement to catch typos and invalid configurations instantly.
+- **Production-Ready Output**: Automatically generates valid Rust Workspaces, Docker-Compose setups, and Helm Charts ready for Kubernetes.
+
+## Quickstart
+
+### macOS / Linux
+
 ```bash
-cargo build --release
-```
+# 1. Install mcpc
+cargo install mcpc
 
-## Quick Start
-
-### 1. Define your Spec
-Create a `mcp.spec.json` file in your root directory:
-```json
-{
-  "name": "my-mcp-cluster",
-  "modules": [
-    {
-      "name": "control-plane",
-      "type": "default"
-    },
-    {
-      "name": "gateway",
-      "type": "api",
-      "dependencies": ["control-plane"]
-    }
-  ]
-}
-```
-
-### 2. Build the Workspace
-```bash
+# 2. Build the workspace
 mcpc build
+
+# You can also run a dry-run to see what would be generated:
+mcpc build --dry-run
+
+# Run with verbose logging for debugging
+mcpc build --verbose
 ```
-This generates an `automata-mcp` directory containing the rust crates configured as a cargo workspace, `Dockerfile` and helm charts for each module, and a unified `docker-compose.yml`.
 
-### 3. Run the Cluster
-```bash
-cd automata-mcp
-docker compose up --build
+### Windows (PowerShell / CMD)
+
+```powershell
+# 1. Install mcpc
+cargo install mcpc
+
+# 2. Build the workspace using the compiled executable
+mcpc.exe build
+
+# You can also run a dry-run to see what would be generated:
+mcpc.exe build --dry-run
+
+# Run with verbose logging for debugging
+mcpc.exe build --verbose
 ```
 
-## CLI Usage
-`mcpc` provides the following commands:
-- `mcpc build [--remote <URL>]`: Compiles the MCP specifications into rust modules. Optionally dispatches builds to a remote worker.
-- `mcpc validate`: Statically analyzes the spec for circular dependencies or schema violations.
-- `mcpc clean`: Clears the generated `automata-mcp` and caches.
-- `mcpc worker`: Starts a remote builder node on port 50051.
-- `mcpc run`: Orchestrates the final run command.
+## Architecture
 
-## Architecture & Schemas
+```mermaid
+graph TD
+    A[mcp.spec.json] -->|Parse & Validate| B(mcpc Core)
+    B -->|Planner & Cache| C{Build Graph}
+    C -->|Generate APIs| D[automata-mcp/gateway]
+    C -->|Generate Agents| E[automata-mcp/agent]
+    C -->|Generate Workers| F[automata-mcp/background-job]
+    D --> G[Cargo.toml / Dockerfile / Helm]
+    E --> G
+    F --> G
+```
 
-### `mcp.spec.json` Schema
-Defines the input specifications:
+## `mcp.spec.json` Schema
+
+The MCP specification follows a strict JSON schema:
+
 ```json
 {
-  "name": "project_name",
-  "modules": [
-    {
-      "name": "module_name",
-      "type": "api | worker | default | agent",
-      "entry": "src/main.rs",
-      "features": ["feature1", "feature2"],
-      "dependencies": ["other_module"]
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["project", "modules"],
+  "properties": {
+    "project": { "type": "string" },
+    "modules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": { "type": "string", "pattern": "^[a-zA-Z0-9_-]+$" },
+          "type": { "type": "string", "enum": ["api", "worker", "agent", "default"] },
+          "entry": { "type": ["string", "null"] },
+          "features": { "type": "array", "items": { "type": "string" } },
+          "dependencies": { "type": "array", "items": { "type": "string" } }
+        }
+      }
     }
-  ]
+  }
 }
 ```
 
-### Manifest output (`manifest.json`)
-The build outputs a trace of its execution:
-```json
-{
-  "built_modules": ["control-plane", "gateway"],
-  "skipped_modules": [],
-  "timestamp": "2026-06-27T12:00:00Z"
-}
-```
+## Generated Project Structure
 
-### Incremental Cache (`.mcpc/cache.json`)
-`mcpc` hashes module specifications to avoid unnecessary builds:
-```json
-{
-  "gateway": "79b4a11f2a36b361",
-  "control-plane": "14f2e519c925b41"
-}
+```text
+automata-mcp/
+├── Cargo.toml               # Workspace manifest
+├── docker-compose.yml       # Local orchestration
+├── gateway/                 # API module
+│   ├── Cargo.toml
+│   ├── Dockerfile
+│   ├── src/
+│   │   ├── main.rs          # Axum boilerplate
+│   │   └── lib.rs           # Workspace target
+│   └── charts/              # Helm templates
+├── agent/                   # Agent module
+│   ├── Cargo.toml
+│   ├── Dockerfile
+│   └── src/
+│       ├── main.rs
+│       └── lib.rs
+└── .mcpc/                   # Build cache
 ```
-

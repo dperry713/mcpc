@@ -8,7 +8,7 @@ use crate::executor;
 use crate::manifest;
 use crate::plugins;
 
-pub fn execute(remote: Option<String>) -> Result<(), McpcError> {
+pub fn execute(remote: Option<String>, dry_run: bool) -> Result<(), McpcError> {
     tracing::info!("[mcpc] build started");
 
     let spec = load_spec("mcp.spec.json")?;
@@ -42,27 +42,31 @@ pub fn execute(remote: Option<String>) -> Result<(), McpcError> {
 
     tracing::info!("[mcpc] building {} modules, skipping {}", plan.build.len(), plan.skip.len());
 
-    executor::execute(&plan, remote)?;
+    executor::execute(&plan, remote, dry_run)?;
 
-    save_cache(&plan.new_cache)?;
-    
-    manifest::generate_manifest(&plan)?;
+    if !dry_run {
+        save_cache(&plan.new_cache)?;
+        
+        manifest::generate_manifest(&plan)?;
 
-    let all_modules: Vec<_> = plan.build.iter().chain(plan.skip.iter()).copied().collect();
-    
-    // Generate docker-compose.yml
-    let compose_content = crate::compose::render_docker_compose(all_modules.iter().copied());
-    std::fs::write("automata-mcp/docker-compose.yml", compose_content)
-        .map_err(|e| McpcError::Io(e))?;
+        let all_modules: Vec<_> = plan.build.iter().chain(plan.skip.iter()).copied().collect();
+        
+        // Generate docker-compose.yml
+        let compose_content = crate::compose::render_docker_compose(all_modules.iter().copied());
+        std::fs::write("automata-mcp/docker-compose.yml", compose_content)
+            .map_err(|e| McpcError::Io(e))?;
 
-    // Generate workspace Cargo.toml
-    let mut workspace_toml = String::from("[workspace]\nresolver = \"2\"\nmembers = [\n");
-    for m in &all_modules {
-        workspace_toml.push_str(&format!("    \"{}\",\n", m.name));
+        // Generate workspace Cargo.toml
+        let mut workspace_toml = String::from("[workspace]\nresolver = \"2\"\nmembers = [\n");
+        for m in &all_modules {
+            workspace_toml.push_str(&format!("    \"{}\",\n", m.name));
+        }
+        workspace_toml.push_str("]\n");
+        std::fs::write("automata-mcp/Cargo.toml", workspace_toml)
+            .map_err(|e| McpcError::Io(e))?;
+    } else {
+        tracing::info!("[mcpc] DRY RUN: skipping manifest and workspace generation");
     }
-    workspace_toml.push_str("]\n");
-    std::fs::write("automata-mcp/Cargo.toml", workspace_toml)
-        .map_err(|e| McpcError::Io(e))?;
 
     tracing::info!("[mcpc] build complete");
 

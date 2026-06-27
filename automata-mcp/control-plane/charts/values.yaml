@@ -1,5 +1,0 @@
-replicaCount: 1
-image:
-  repository: control-plane
-  pullPolicy: IfNotPresent
-  tag: "latest"

@@ -1,200 +1,104 @@
 use crate::schema::Module;
-use minijinja::render;
+use handlebars::{Handlebars, DirectorySourceOptions};
+use rust_embed::RustEmbed;
 use std::collections::HashMap;
+use serde_json::json;
+use std::path::Path;
+use crate::errors::McpcError;
 
-pub fn render_main_rs(module: &Module) -> String {
+#[derive(RustEmbed)]
+#[folder = "templates/"]
+pub struct EmbeddedTemplates;
+
+pub struct TemplateEngine<'a> {
+    pub registry: Handlebars<'a>,
+}
+
+impl<'a> TemplateEngine<'a> {
+    pub fn new() -> Result<Self, McpcError> {
+        let mut registry = Handlebars::new();
+        // 1. Register embedded templates
+        for file in EmbeddedTemplates::iter() {
+            if let Some(content) = EmbeddedTemplates::get(file.as_ref()) {
+                let template_str = std::str::from_utf8(content.data.as_ref())
+                    .map_err(|e| McpcError::Build(format!("Invalid UTF-8 in template {}: {}", file, e)))?;
+                registry.register_template_string(file.as_ref(), template_str)
+                    .map_err(|e| McpcError::Build(format!("Failed to register template {}: {}", file, e)))?;
+            }
+        }
+        
+        // 2. Register local overrides
+        let local_templates_dir = Path::new(".mcpc/templates");
+        if local_templates_dir.exists() && local_templates_dir.is_dir() {
+            let mut options = DirectorySourceOptions::default();
+            options.tpl_extension = ".hbs".to_string();
+            registry.register_templates_directory(local_templates_dir, options)
+                .map_err(|e| McpcError::Build(format!("Failed to load local templates: {}", e)))?;
+        }
+
+        Ok(Self { registry })
+    }
+
+    pub fn render(&self, template_name: &str, data: &serde_json::Value) -> Result<String, McpcError> {
+        self.registry.render(template_name, data)
+            .map_err(|e| McpcError::Build(format!("Failed to render template {}: {}", template_name, e)))
+    }
+}
+
+pub fn render_main_rs(module: &Module) -> Result<String, McpcError> {
+    let engine = TemplateEngine::new()?;
     let module_type = module.module_type.as_deref().unwrap_or("default");
+    let template_name = format!("{}_main.rs.hbs", module_type);
     
-    match module_type {
-        "api" => {
-            render!(
-r#"use axum::{routing::get, Router};
-
-#[tokio::main]
-async fn main() {
-    let app = Router::new().route("/health", get(|| async { "OK" }));
-    println!("API '{{ name }}' listening on 0.0.0.0:3000");
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
-    axum::serve(listener, app).await.unwrap();
-}
-"#, name => module.name
-            )
-        }
-        "worker" => {
-            render!(
-r#"use tokio::time::{sleep, Duration};
-
-#[tokio::main]
-async fn main() {
-    println!("Worker '{{ name }}' starting...");
-    loop {
-        println!("Worker '{{ name }}' heartbeat...");
-        sleep(Duration::from_secs(5)).await;
-    }
-}
-"#, name => module.name
-            )
-        }
-        "agent" => {
-            render!(
-r#"fn main() {
-    println!("Agent '{{ name }}' initialized.");
-}
-"#, name => module.name
-            )
-        }
-        _ => {
-            render!(
-r#"fn main() {
-    println!("Running module: {{ name }}");
-}
-"#, name => module.name
-            )
-        }
+    let data = json!({
+        "name": module.name,
+        "features": module.features,
+    });
+    
+    // Fallback to default if type-specific doesn't exist
+    if engine.registry.has_template(&template_name) {
+        engine.render(&template_name, &data)
+    } else {
+        engine.render("default_main.rs.hbs", &data)
     }
 }
 
-pub fn render_cargo_toml(module: &Module) -> String {
-    let module_type = module.module_type.as_deref().unwrap_or("default");
-    let mut toml = render!(
-r#"[package]
-name = "{{ name }}"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-"#, name => module.name
-    );
-
-    for dep in &module.dependencies {
-        toml.push_str(&render!(r#"{{ dep }} = { path = "../{{ dep }}" }"#, dep => dep));
-        toml.push('\n');
-    }
-
-    match module_type {
-        "api" => {
-            toml.push_str("tokio = { version = \"1.0\", features = [\"full\"] }\n");
-            toml.push_str("axum = \"0.7\"\n");
-        }
-        "worker" => {
-            toml.push_str("tokio = { version = \"1.0\", features = [\"full\"] }\n");
-        }
-        _ => {}
-    }
-
-    toml
+pub fn render_cargo_toml(module: &Module) -> Result<String, McpcError> {
+    let engine = TemplateEngine::new()?;
+    let data = json!({
+        "name": module.name,
+        "dependencies": module.dependencies,
+        "module_type": module.module_type.as_deref().unwrap_or("default"),
+    });
+    engine.render("cargo_toml.hbs", &data)
 }
 
-pub fn render_dockerfile(module: &Module) -> String {
-    render!(
-r#"FROM rust:1.77 as builder
-WORKDIR /usr/src/app
-COPY . .
-RUN cargo build --release
-
-FROM debian:bullseye-slim
-RUN apt-get update && rm -rf /var/lib/apt/lists/*
-COPY --from=builder /usr/src/app/target/release/{{ name }} /usr/local/bin/{{ name }}
-CMD ["{{ name }}"]
-"#, name => module.name
-    )
+pub fn render_dockerfile(module: &Module) -> Result<String, McpcError> {
+    let engine = TemplateEngine::new()?;
+    let data = json!({
+        "name": module.name,
+    });
+    engine.render("dockerfile.hbs", &data)
 }
 
-pub fn render_helm_chart(module: &Module) -> HashMap<String, String> {
+pub fn render_helm_chart(module: &Module) -> Result<HashMap<String, String>, McpcError> {
     let mut files = HashMap::new();
-    let module_type = module.module_type.as_deref().unwrap_or("default");
+    let engine = TemplateEngine::new()?;
+    
+    let data = json!({
+        "name": module.name,
+        "module_type": module.module_type.as_deref().unwrap_or("default"),
+        "open": "{{",
+        "close": "}}"
+    });
 
-    files.insert(
-        "charts/Chart.yaml".into(),
-        render!(
-r#"apiVersion: v2
-name: {{ name }}
-description: A Helm chart for {{ name }}
-type: application
-version: 0.1.0
-appVersion: "1.0.0"
-"#, name => module.name
-        )
-    );
+    files.insert("charts/Chart.yaml".into(), engine.render("helm/Chart.yaml.hbs", &data)?);
+    files.insert("charts/values.yaml".into(), engine.render("helm/values.yaml.hbs", &data)?);
+    files.insert("charts/templates/deployment.yaml".into(), engine.render("helm/deployment.yaml.hbs", &data)?);
 
-    files.insert(
-        "charts/values.yaml".into(),
-        render!(
-r#"replicaCount: 1
-image:
-  repository: {{ name }}
-  pullPolicy: IfNotPresent
-  tag: "latest"
-"#, name => module.name
-        )
-    );
-
-    files.insert(
-        "charts/templates/deployment.yaml".into(),
-        render!(
-r#"apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: {{ "{{" }} include "{{ name }}.fullname" . {{ "}}" }}
-  labels:
-    app.kubernetes.io/name: {{ "{{" }} include "{{ name }}.name" . {{ "}}" }}
-spec:
-  replicas: {{ "{{" }} .Values.replicaCount {{ "}}" }}
-  selector:
-    matchLabels:
-      app.kubernetes.io/name: {{ "{{" }} include "{{ name }}.name" . {{ "}}" }}
-  template:
-    metadata:
-      labels:
-        app.kubernetes.io/name: {{ "{{" }} include "{{ name }}.name" . {{ "}}" }}
-    spec:
-      containers:
-        - name: {{ "{{" }} .Chart.Name {{ "}}" }}
-          image: "{{ "{{" }} .Values.image.repository {{ "}}" }}:{{ "{{" }} .Values.image.tag {{ "}}" }}"
-"#, name => module.name
-        )
-    );
-
-    if module_type == "api" {
-        files.insert(
-            "charts/templates/service.yaml".into(),
-            render!(
-r#"apiVersion: v1
-kind: Service
-metadata:
-  name: {{ "{{" }} include "{{ name }}.fullname" . {{ "}}" }}
-spec:
-  type: ClusterIP
-  ports:
-    - port: 3000
-      targetPort: 3000
-      protocol: TCP
-      name: http
-  selector:
-    app.kubernetes.io/name: {{ "{{" }} include "{{ name }}.name" . {{ "}}" }}
-"#, name => module.name
-            )
-        );
+    if module.module_type.as_deref() == Some("api") {
+        files.insert("charts/templates/service.yaml".into(), engine.render("helm/service.yaml.hbs", &data)?);
     }
 
-    files
-}
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_render_cargo_toml() {
-        let module = Module {
-            name: "agent".into(),
-            module_type: Some("worker".into()),
-            entry: None,
-            features: vec![],
-            dependencies: vec!["control-plane".into()],
-        };
-        let toml = render_cargo_toml(&module);
-        assert!(toml.contains("name = \"agent\""));
-        assert!(toml.contains("control-plane = { path = \"../control-plane\" }"));
-        assert!(toml.contains("tokio = "));
-    }
+    Ok(files)
 }

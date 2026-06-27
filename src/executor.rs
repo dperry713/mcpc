@@ -12,8 +12,10 @@ fn ensure_dirs() -> Result<(), McpcError> {
     Ok(())
 }
 
-pub fn execute(plan: &BuildPlan, remote: Option<String>) -> Result<(), McpcError> {
-    ensure_dirs()?;
+pub fn execute(plan: &BuildPlan, remote: Option<String>, dry_run: bool) -> Result<(), McpcError> {
+    if !dry_run {
+        ensure_dirs()?;
+    }
 
     let client = if remote.is_some() {
         Some(reqwest::blocking::Client::new())
@@ -47,6 +49,11 @@ pub fn execute(plan: &BuildPlan, remote: Option<String>) -> Result<(), McpcError
             let full_path = format!("{}/{}", OUTPUT_DIR, rel_path);
             let path = Path::new(&full_path);
             
+            if dry_run {
+                tracing::info!("     [DRY RUN] Would write {}", full_path);
+                continue;
+            }
+
             if let Some(parent) = path.parent() {
                 fs::create_dir_all(parent)
                     .map_err(|e| McpcError::Build(format!("Failed to create dir for {}: {}", rel_path, e)))?;

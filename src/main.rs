@@ -1,12 +1,10 @@
-use mcpc::logging;
 use mcpc::cli;
-use mcpc::diagnostics;
+use miette::Result;
 
-fn main() {
-    logging::init();
-    
+fn main() -> Result<()> {
     if let Err(err) = cli::run_cli() {
-        diagnostics::report_error(&err);
-        std::process::exit(1);
+        return Err(err.into());
     }
+    
+    Ok(())
 }
