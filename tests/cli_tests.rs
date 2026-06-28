@@ -39,7 +39,10 @@ fn test_cargo_check_generated_workspace() {
     cmd.arg("build").assert().success();
 
     let mut check_cmd = std::process::Command::new("cargo");
-    check_cmd.arg("check").current_dir("automata-mcp");
+    check_cmd.arg("check")
+        .arg("--target-dir")
+        .arg("target-temp-cli")
+        .current_dir("automata-mcp");
     let status = check_cmd.status().expect("Failed to run cargo check");
     assert!(status.success(), "cargo check on generated workspace failed");
 }
