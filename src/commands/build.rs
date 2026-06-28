@@ -21,6 +21,9 @@ pub struct BuildArgs {
 
     #[arg(short, long)]
     pub watch: bool,
+
+    #[arg(short, long)]
+    pub stage: Option<String>,
 }
 
 pub fn execute(args: BuildArgs) -> Result<(), McpcError> {
@@ -28,14 +31,19 @@ pub fn execute(args: BuildArgs) -> Result<(), McpcError> {
         run_watch_loop(&args)?;
         Ok(())
     } else {
-        run_build(args.remote.clone(), args.dry_run)
+        run_build(args.remote.clone(), args.dry_run, args.stage.clone())
     }
 }
 
-fn run_build(remote: Option<String>, dry_run: bool) -> Result<(), McpcError> {
+fn run_build(remote: Option<String>, dry_run: bool, stage_override: Option<String>) -> Result<(), McpcError> {
     tracing::info!("[mcpc] build started");
 
-    let spec = load_spec("mcp.spec.json")?;
+    let mut spec = load_spec("mcp.spec.json")?;
+    if let Some(stage) = stage_override {
+        spec.stage = stage;
+    }
+
+    tracing::info!("[mcpc] active lifecycle stage: {}", spec.stage);
     
     let discovered_plugins = plugins::discover_plugins();
     let spec_json = serde_json::to_value(&spec).map_err(McpcError::Serialization)?;
@@ -98,7 +106,7 @@ fn run_build(remote: Option<String>, dry_run: bool) -> Result<(), McpcError> {
 
 fn run_watch_loop(args: &BuildArgs) -> Result<(), McpcError> {
     // Initial build
-    if let Err(e) = run_build(args.remote.clone(), args.dry_run) {
+    if let Err(e) = run_build(args.remote.clone(), args.dry_run, args.stage.clone()) {
         tracing::error!("[mcpc] initial build failed: {}", e);
     }
 
@@ -123,7 +131,7 @@ fn run_watch_loop(args: &BuildArgs) -> Result<(), McpcError> {
                 match event.kind {
                     EventKind::Modify(_) | EventKind::Create(_) | EventKind::Remove(_) => {
                         tracing::info!("[mcpc] detected change, rebuilding...");
-                        if let Err(e) = run_build(args.remote.clone(), args.dry_run) {
+                        if let Err(e) = run_build(args.remote.clone(), args.dry_run, args.stage.clone()) {
                             tracing::error!("[mcpc] build failed: {}", e);
                         }
                     },

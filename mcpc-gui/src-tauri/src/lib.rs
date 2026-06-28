@@ -42,14 +42,14 @@ fn get_graph() -> Result<Vec<Module>, String> {
 }
 
 #[tauri::command]
-fn run_cli_command(command: &str) -> Result<String, String> {
+fn run_cli_command(command: &str, stage: Option<String>) -> Result<String, String> {
     // In a full app, we could pipe tracing output here.
     // For now, we invoke the native library directly for fast, reliable execution.
     std::env::set_current_dir("../..").map_err(|e| e.to_string())?; // Ensure we are in workspace root
     
     match command {
         "build" => {
-            let args = mcpc::commands::build::BuildArgs { remote: None, dry_run: false, watch: false };
+            let args = mcpc::commands::build::BuildArgs { remote: None, dry_run: false, watch: false, stage };
             mcpc::commands::build::execute(args).map_err(|e| e.to_string())?;
             Ok("Build completed successfully.\nCheck your automata-mcp/ directory.".to_string())
         },

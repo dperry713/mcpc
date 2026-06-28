@@ -56,8 +56,8 @@ mod tests {
 
     #[test]
     fn test_planner_incremental() {
-        let module_a = Module { name: "A".into(), module_type: None, entry: None, features: vec![], dependencies: vec![] };
-        let module_b = Module { name: "B".into(), module_type: None, entry: None, features: vec![], dependencies: vec!["A".into()] };
+        let module_a = Module { name: "A".into(), module_type: None, entry: None, features: vec![], dependencies: vec![], meta: None };
+        let module_b = Module { name: "B".into(), module_type: None, entry: None, features: vec![], dependencies: vec!["A".into()], meta: None };
         
         let sorted = vec![&module_a, &module_b];
         

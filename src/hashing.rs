@@ -1,5 +1,4 @@
 use crate::schema::Module;
-use crate::generator;
 use sha2::{Sha256, Digest};
 
 pub fn compute_module_hash(module: &Module) -> String {
@@ -19,15 +18,14 @@ pub fn compute_module_hash(module: &Module) -> String {
     sorted_deps.sort();
     canonical.push_str(&format!("dependencies:{:?}\n", sorted_deps));
     
-    hasher.update(canonical.as_bytes());
-
-    // 2. Hash the generated output (BTreeMap keys are already sorted deterministically)
-    if let Ok(output) = generator::generate_module(module) {
-        for (rel_path, content) in &output {
-            hasher.update(rel_path.as_bytes());
-            hasher.update(content.as_bytes());
+    // Hash _meta if present to detect metadata changes
+    if let Some(ref meta) = module.meta {
+        if let Ok(meta_str) = serde_json::to_string(meta) {
+            canonical.push_str(&format!("meta:{}\n", meta_str));
         }
     }
+    
+    hasher.update(canonical.as_bytes());
 
     format!("{:x}", hasher.finalize())
 }

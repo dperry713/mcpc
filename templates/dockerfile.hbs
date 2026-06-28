@@ -3,7 +3,8 @@ WORKDIR /usr/src/app
 COPY . .
 RUN cargo build --release
 
-FROM debian:bullseye-slim
-RUN apt-get update && rm -rf /var/lib/apt/lists/*
-COPY --from=builder /usr/src/app/target/release/{{ name }} /usr/local/bin/{{ name }}
-CMD ["{{ name }}"]
+# Hardened Runtime Container (Zero-Trust Distroless)
+FROM gcr.io/distroless/cc-debian12:latest
+COPY --from=builder "/usr/src/app/target/release/{{ name }}" "/usr/local/bin/{{ name }}"
+USER 65532:65532
+ENTRYPOINT ["/usr/local/bin/{{ name }}"]

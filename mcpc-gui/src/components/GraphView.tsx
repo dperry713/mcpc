@@ -14,19 +14,33 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { invoke } from '@tauri-apps/api/core';
-import { CheckCircle2, Loader2, Info, LayoutTemplate, Map as MapIcon, Plus, Save } from 'lucide-react';
+import { CheckCircle2, Loader2, Info, LayoutTemplate, Map as MapIcon, ShieldAlert } from 'lucide-react';
 import { CustomModuleNode } from './CustomModuleNode';
+
+interface RemoteConnection {
+  name: string;
+  url: string;
+  auth_flow: string;
+  pkce: boolean;
+  audience: string;
+  scope: string;
+  jit_escalation?: boolean;
+}
 
 interface Module {
   name: string;
   type?: string;
   dependencies?: string[];
   features?: string[];
+  _meta?: any;
 }
 
 interface MCPSpec {
   project: string;
+  stage?: 'development' | 'testing' | 'production';
   modules: Module[];
+  _meta?: any;
+  connections?: RemoteConnection[];
 }
 
 export function GraphView() {
@@ -39,6 +53,27 @@ export function GraphView() {
   const [direction, setDirection] = useState<'TB' | 'LR'>('LR');
   const [showMiniMap, setShowMiniMap] = useState(true);
   const [selectedModuleName, setSelectedModuleName] = useState<string | null>(null);
+  
+  // Transition Gate state
+  const [showTransitionModal, setShowTransitionModal] = useState(false);
+  const [pendingStage, setPendingStage] = useState<'development' | 'testing' | 'production' | null>(null);
+  const [confirmInput, setConfirmInput] = useState('');
+
+  const handleStageChange = (newStage: 'development' | 'testing' | 'production') => {
+    if (!spec) return;
+    const currentStage = spec.stage || 'development';
+    if (newStage === currentStage) return;
+
+    if (newStage === 'production') {
+      setPendingStage(newStage);
+      setConfirmInput('');
+      setShowTransitionModal(true);
+    } else {
+      const newSpec = { ...spec, stage: newStage };
+      setSpec(newSpec);
+      saveSpecToDisk(newSpec);
+    }
+  };
   
   const selectedModule = spec?.modules.find(m => m.name === selectedModuleName) || null;
 
@@ -208,9 +243,18 @@ export function GraphView() {
       {/* Graph Area */}
       <div className="flex-1 relative">
         <div className="absolute top-4 left-4 z-10 flex gap-2">
-          <div className="flex items-center gap-2 bg-card border border-border px-4 py-2 rounded-lg shadow-sm">
+          <div className="flex items-center gap-2 bg-card border border-border px-4 py-1.5 rounded-lg shadow-sm">
             <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-            <span className="text-sm font-medium">Valid Spec</span>
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mr-1">Pipeline:</span>
+            <select
+              value={spec?.stage || 'development'}
+              onChange={(e) => handleStageChange(e.target.value as any)}
+              className="text-xs font-bold bg-secondary text-foreground border border-border rounded px-2.5 py-1 focus:outline-none focus:ring-1 focus:ring-foreground transition-all cursor-pointer"
+            >
+              <option value="development">🛠️ Development</option>
+              <option value="testing">🧪 Testing</option>
+              <option value="production">🔒 Production</option>
+            </select>
           </div>
         </div>
         
@@ -319,6 +363,74 @@ export function GraphView() {
               </div>
             )}
             <span className="text-[10px] text-muted-foreground mt-1">To remove dependencies, select the connection line (edge) in the graph and press Backspace.</span>
+          </div>
+        </div>
+      )}
+
+      {showTransitionModal && (
+        <div className="absolute inset-0 bg-background/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-card border border-border rounded-xl shadow-2xl p-6 flex flex-col gap-4 animate-in fade-in-50 zoom-in-95 duration-200">
+            <div className="flex items-center gap-3 text-amber-500">
+              <ShieldAlert className="w-6 h-6 animate-pulse" />
+              <h3 className="text-lg font-bold tracking-wide text-foreground">Pipeline Transition Gate</h3>
+            </div>
+            
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              You are transitioning the project mesh from <span className="font-mono bg-secondary px-1.5 py-0.5 rounded text-foreground">{(spec?.stage || 'development').toUpperCase()}</span> to <span className="font-mono bg-destructive/10 text-destructive border border-destructive/20 px-1.5 py-0.5 rounded">{(pendingStage || '').toUpperCase()}</span> stage.
+            </p>
+            
+            <div className="bg-muted/40 border border-border p-3.5 rounded-lg text-xs leading-relaxed text-zinc-400 flex flex-col gap-2">
+              <div className="font-semibold text-foreground">Compliance Policies Activated:</div>
+              <ul className="list-disc pl-4 space-y-1">
+                <li>Zero-Trust Stateless execution validation</li>
+                <li>Harden infrastructure outputs (Distroless runtime)</li>
+                <li>Lock execution gates in Production environment</li>
+              </ul>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs text-muted-foreground font-semibold">
+                To confirm this transition, type <span className="font-mono text-foreground font-bold bg-secondary px-1.5 py-0.5 rounded">CONFIRM</span> below:
+              </label>
+              <input
+                type="text"
+                value={confirmInput}
+                onChange={(e) => setConfirmInput(e.target.value)}
+                placeholder="CONFIRM"
+                className="text-sm font-mono tracking-widest uppercase bg-background text-foreground border border-border rounded-md px-3 py-2 focus:outline-none focus:border-destructive transition-colors text-center"
+              />
+            </div>
+
+            <div className="flex justify-end gap-3 mt-2">
+              <button
+                onClick={() => {
+                  setShowTransitionModal(false);
+                  setPendingStage(null);
+                }}
+                className="px-4 py-2 border border-border rounded-lg text-sm text-muted-foreground hover:bg-secondary transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                disabled={confirmInput !== 'CONFIRM'}
+                onClick={() => {
+                  if (confirmInput === 'CONFIRM' && pendingStage && spec) {
+                    const newSpec = { ...spec, stage: pendingStage };
+                    setSpec(newSpec);
+                    saveSpecToDisk(newSpec);
+                    setShowTransitionModal(false);
+                    setPendingStage(null);
+                  }
+                }}
+                className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+                  confirmInput === 'CONFIRM'
+                    ? 'bg-foreground text-background hover:opacity-90 cursor-pointer shadow-lg'
+                    : 'bg-muted text-muted-foreground cursor-not-allowed opacity-50'
+                }`}
+              >
+                Approve & Transition
+              </button>
+            </div>
           </div>
         </div>
       )}

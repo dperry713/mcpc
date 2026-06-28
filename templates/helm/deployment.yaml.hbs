@@ -14,6 +14,18 @@ spec:
       labels:
         app.kubernetes.io/name: {{ open }} include "{{ name }}.name" . {{ close }}
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        fsGroup: 65532
       containers:
         - name: {{ open }} .Chart.Name {{ close }}
           image: "{{ open }} .Values.image.repository {{ close }}:{{ open }} .Values.image.tag {{ close }}"
+          securityContext:
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 65532
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL

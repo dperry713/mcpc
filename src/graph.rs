@@ -68,10 +68,13 @@ mod tests {
     fn test_valid_graph() {
         let spec = MCPSpec {
             project: "test".into(),
+            stage: "development".into(),
             modules: vec![
-                Module { name: "A".into(), module_type: None, entry: None, features: vec![], dependencies: vec!["B".into()] },
-                Module { name: "B".into(), module_type: None, entry: None, features: vec![], dependencies: vec![] },
+                Module { name: "A".into(), module_type: None, entry: None, features: vec![], dependencies: vec!["B".into()], meta: None },
+                Module { name: "B".into(), module_type: None, entry: None, features: vec![], dependencies: vec![], meta: None },
             ],
+            meta: None,
+            connections: vec![],
         };
         let sorted = build_graph(&spec).unwrap();
         assert_eq!(sorted[0].name, "B");
@@ -82,10 +85,13 @@ mod tests {
     fn test_circular_dependency() {
         let spec = MCPSpec {
             project: "test".into(),
+            stage: "development".into(),
             modules: vec![
-                Module { name: "A".into(), module_type: None, entry: None, features: vec![], dependencies: vec!["B".into()] },
-                Module { name: "B".into(), module_type: None, entry: None, features: vec![], dependencies: vec!["A".into()] },
+                Module { name: "A".into(), module_type: None, entry: None, features: vec![], dependencies: vec!["B".into()], meta: None },
+                Module { name: "B".into(), module_type: None, entry: None, features: vec![], dependencies: vec!["A".into()], meta: None },
             ],
+            meta: None,
+            connections: vec![],
         };
         let err = build_graph(&spec).unwrap_err();
         assert!(err.to_string().contains("Circular dependency detected"));
