@@ -1,0 +1,47 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ open }} include "{{ name }}.fullname" . {{ close }}-netpol
+  labels:
+    app.kubernetes.io/name: {{ open }} include "{{ name }}.name" . {{ close }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: {{ open }} include "{{ name }}.name" . {{ close }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    {{#if dependents}}
+    {{#each dependents}}
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: "{{this}}"
+    {{/each}}
+    {{else}}
+    # Deny all ingress by default
+    []
+    {{/if}}
+  egress:
+    # Allow DNS resolution queries to kube-dns
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    {{#if dependencies}}
+    {{#each dependencies}}
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: "{{this}}"
+    {{/each}}
+    {{/if}}

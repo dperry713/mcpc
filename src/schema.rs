@@ -37,6 +37,8 @@ pub struct Module {
     pub features: Vec<String>,
     #[serde(default)]
     pub dependencies: Vec<String>,
+    #[serde(default)]
+    pub dependents: Vec<String>,
     #[serde(rename = "_meta", default)]
     pub meta: Option<serde_json::Value>,
 }

@@ -43,6 +43,20 @@ fn run_build(remote: Option<String>, dry_run: bool, stage_override: Option<Strin
         spec.stage = stage;
     }
 
+    // Populate dependents dynamically from the dependency graph
+    let mut dependents_map: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
+    for m in &spec.modules {
+        for dep in &m.dependencies {
+            dependents_map.entry(dep.clone()).or_default().push(m.name.clone());
+        }
+    }
+    for m in &mut spec.modules {
+        if let Some(mut deps) = dependents_map.remove(&m.name) {
+            deps.sort(); // maintain determinism
+            m.dependents = deps;
+        }
+    }
+
     tracing::info!("[mcpc] active lifecycle stage: {}", spec.stage);
     
     let discovered_plugins = plugins::discover_plugins();

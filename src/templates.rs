@@ -88,12 +88,15 @@ pub fn render_helm_chart(module: &Module) -> Result<std::collections::BTreeMap<S
         "name": module.name,
         "module_type": module.module_type.as_deref().unwrap_or("default"),
         "open": "{{",
-        "close": "}}"
+        "close": "}}",
+        "dependencies": module.dependencies,
+        "dependents": module.dependents
     });
 
     files.insert("charts/Chart.yaml".into(), engine.render("helm/Chart.yaml.hbs", &data)?);
     files.insert("charts/values.yaml".into(), engine.render("helm/values.yaml.hbs", &data)?);
     files.insert("charts/templates/deployment.yaml".into(), engine.render("helm/deployment.yaml.hbs", &data)?);
+    files.insert("charts/templates/networkpolicy.yaml".into(), engine.render("helm/networkpolicy.yaml.hbs", &data)?);
 
     if module.module_type.as_deref() == Some("api") {
         files.insert("charts/templates/service.yaml".into(), engine.render("helm/service.yaml.hbs", &data)?);

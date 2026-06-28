@@ -49,6 +49,18 @@ pub fn discover_plugins() -> Vec<Plugin> {
 use std::time::Duration;
 
 pub fn run_plugin(plugin: &Plugin, hook: &str, payload: serde_json::Value) -> Result<PluginResponse, McpcError> {
+    // Sanitize plugin path to prevent command injection
+    let path_str = plugin.path.to_string_lossy();
+    let forbidden = [';', '|', '&', '$', '`', '<', '>'];
+    for &c in &forbidden {
+        if path_str.contains(c) {
+            return Err(McpcError::Build(format!(
+                "Security Violation: Malicious plugin path detected: {}",
+                path_str
+            )));
+        }
+    }
+
     let request = PluginRequest {
         hook: hook.to_string(),
         payload,

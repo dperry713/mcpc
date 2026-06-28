@@ -70,8 +70,8 @@ mod tests {
             project: "test".into(),
             stage: "development".into(),
             modules: vec![
-                Module { name: "A".into(), module_type: None, entry: None, features: vec![], dependencies: vec!["B".into()], meta: None },
-                Module { name: "B".into(), module_type: None, entry: None, features: vec![], dependencies: vec![], meta: None },
+                Module { name: "A".into(), module_type: None, entry: None, features: vec![], dependencies: vec!["B".into()], dependents: vec![], meta: None },
+                Module { name: "B".into(), module_type: None, entry: None, features: vec![], dependencies: vec![], dependents: vec![], meta: None },
             ],
             meta: None,
             connections: vec![],
@@ -87,8 +87,8 @@ mod tests {
             project: "test".into(),
             stage: "development".into(),
             modules: vec![
-                Module { name: "A".into(), module_type: None, entry: None, features: vec![], dependencies: vec!["B".into()], meta: None },
-                Module { name: "B".into(), module_type: None, entry: None, features: vec![], dependencies: vec!["A".into()], meta: None },
+                Module { name: "A".into(), module_type: None, entry: None, features: vec![], dependencies: vec!["B".into()], dependents: vec![], meta: None },
+                Module { name: "B".into(), module_type: None, entry: None, features: vec![], dependencies: vec!["A".into()], dependents: vec![], meta: None },
             ],
             meta: None,
             connections: vec![],
