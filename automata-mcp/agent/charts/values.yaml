@@ -1,6 +1,6 @@
 replicaCount: 1
 image:
-  repository: {{ name }}
+  repository: agent
   pullPolicy: IfNotPresent
   tag: "latest"
 

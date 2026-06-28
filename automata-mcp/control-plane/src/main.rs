@@ -1,4 +1,3 @@
-{{#if (eq name "control-plane")}}
 use std::time::Duration;
 use tokio::time::interval;
 
@@ -12,7 +11,7 @@ async fn run_secret_rotation_audit() {
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt::init();
-    tracing::info!("Agent '{{ name }}' (Control Plane) running");
+    tracing::info!("Agent 'control-plane' (Control Plane) running");
 
     let mut audit_interval = interval(Duration::from_secs(60));
     tokio::spawn(async move {
@@ -27,10 +26,3 @@ async fn main() {
         tokio::time::sleep(Duration::from_secs(3600)).await;
     }
 }
-{{else}}
-#[tokio::main]
-async fn main() {
-    tracing_subscriber::fmt::init();
-    tracing::info!("Agent '{{ name }}' running");
-}
-{{/if}}

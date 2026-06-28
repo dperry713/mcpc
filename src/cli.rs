@@ -1,5 +1,5 @@
 use clap::{Parser, Subcommand};
-use crate::commands::{build, run, validate, clean, worker};
+use crate::commands::{build, run, validate, clean, worker, audit};
 use crate::errors::McpcError;
 
 #[derive(Parser)]
@@ -25,6 +25,7 @@ pub enum Commands {
     Validate(validate::ValidateArgs),
     Clean(clean::CleanArgs),
     Worker(worker::WorkerArgs),
+    Audit(audit::AuditArgs),
 }
 
 pub fn run_cli() -> Result<(), McpcError> {
@@ -37,6 +38,7 @@ pub fn run_cli() -> Result<(), McpcError> {
         Commands::Validate(args) => validate::execute(args)?,
         Commands::Clean(args) => clean::execute(args)?,
         Commands::Worker(args) => worker::run_worker(args)?,
+        Commands::Audit(args) => audit::execute(args)?,
     }
 
     Ok(())

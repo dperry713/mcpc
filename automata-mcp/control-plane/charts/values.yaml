@@ -1,6 +1,6 @@
 replicaCount: 1
 image:
-  repository: {{ name }}
+  repository: control-plane
   pullPolicy: IfNotPresent
   tag: "latest"
 

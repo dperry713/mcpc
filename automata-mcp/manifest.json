@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "timestamp": 1782616428,
+  "modules": [
+    "agent",
+    "background-job",
+    "control-plane",
+    "gateway"
+  ],
+  "hashes": {
+    "agent": "bba4244731e21f814311b44343cbdc0cb3609618acedfc296c00ac8dfbe71208",
+    "background-job": "c8619baae07b14beddecdbdb5204bf168acd0b92dec33e3aa2cf4b72d71e3180",
+    "control-plane": "2dca62de3d7908d2b5238291ab41535c8c87cc873895eb9a8ab06ecc6d9e2abe",
+    "gateway": "b8a859b853a09cf11129ad7c8e6c9f772472ff2c491f1af4b57cdc5062aaf20b"
+  }
+}

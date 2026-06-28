@@ -1,4 +1,4 @@
-use crate::schema::MCPSpec;
+use crate::schema::{MCPSpec, Module};
 use crate::errors::McpcError;
 use crate::diagnostics::{Diagnostic, report_diagnostic_warning};
 use std::collections::HashSet;
@@ -255,6 +255,67 @@ fn check_cycle(
     visited.insert(node.to_string());
 
     Ok(())
+}
+
+pub fn generate_seccomp_profile(module: &Module) -> Result<serde_json::Value, McpcError> {
+    let allowed_syscalls = vec![
+        "read", "write", "open", "close", "stat", "fstat", "lstat", "poll", "lseek",
+        "mmap", "mprotect", "munmap", "brk", "rt_sigaction", "rt_sigprocmask",
+        "rt_sigreturn", "ioctl", "pread64", "pwrite64", "readv", "writev", "access",
+        "pipe", "select", "sched_yield", "mremap", "mincore", "madvise",
+        "shmget", "shmat", "shmctl", "dup", "dup2", "pause", "nanosleep",
+        "getitimer", "alarm", "setitimer", "getpid", "sendfile", "socket",
+        "connect", "accept", "sendto", "recvfrom", "shutdown", "bind", "listen",
+        "getsockname", "getpeername", "socketpair", "setsockopt", "getsockopt",
+        "clone", "fork", "vfork", "execve", "exit", "wait4", "kill", "uname",
+        "semget", "semop", "semctl", "shmdt", "msgget", "msgsnd", "msgrcv",
+        "msgctl", "fcntl", "flock", "fsync", "fdatasync", "truncate", "ftruncate",
+        "getdents", "getcwd", "chdir", "fchdir", "rename", "mkdir", "rmdir",
+        "creat", "link", "unlink", "symlink", "readlink", "chmod", "fchmod",
+        "chown", "fchown", "lchown", "umask", "gettimeofday", "getrlimit",
+        "getrusage", "sysinfo", "times", "ptrace", "getuid", "syslog", "getgid",
+        "setuid", "setgid", "geteuid", "getegid", "setpgid", "getppid", "getpgrp"
+    ];
+
+    let mut allowed: Vec<String> = allowed_syscalls.iter().map(|&s| s.to_string()).collect();
+
+    // Filter network syscalls if network feature is missing
+    if !module.features.contains(&"network".to_string()) {
+        allowed.retain(|s| {
+            s != "socket" && s != "connect" && s != "accept" && s != "sendto" &&
+            s != "recvfrom" && s != "bind" && s != "listen" && s != "setsockopt" &&
+            s != "getsockopt"
+        });
+    }
+
+    // Filter filesystem alteration syscalls if fs feature is missing
+    if !module.features.contains(&"fs".to_string()) {
+        allowed.retain(|s| {
+            s != "mkdir" && s != "rmdir" && s != "creat" && s != "link" &&
+            s != "unlink" && s != "symlink" && s != "rename" && s != "chmod" &&
+            s != "fchmod" && s != "chown" && s != "fchown"
+        });
+    }
+
+    // Always deny high-privilege operations
+    allowed.retain(|s| s != "ptrace" && s != "mount" && s != "reboot" && s != "sys_chroot");
+
+    let profile = serde_json::json!({
+        "defaultAction": "SCMP_ACT_ERRNO",
+        "architectures": [
+            "SCMP_ARCH_X86_64",
+            "SCMP_ARCH_X86",
+            "SCMP_ARCH_X32"
+        ],
+        "syscalls": [
+            {
+                "names": allowed,
+                "action": "SCMP_ACT_ALLOW"
+            }
+        ]
+    });
+
+    Ok(profile)
 }
 
 #[cfg(test)]

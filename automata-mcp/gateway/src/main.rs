@@ -168,7 +168,7 @@ async fn main() {
     if cert_path.exists() && key_path.exists() {
         tracing::info!("🔒 Zero-Trust Gateway terminating mTLS securely on 0.0.0.0:3000");
     } else {
-        tracing::info!("🔒 Zero-Trust API '{{ name }}' listening on 0.0.0.0:3000 (Local Dev Mode - TLS Disabled)");
+        tracing::info!("🔒 Zero-Trust API 'gateway' listening on 0.0.0.0:3000 (Local Dev Mode - TLS Disabled)");
     }
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();

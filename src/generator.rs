@@ -23,6 +23,12 @@ pub fn generate_module(module: &Module) -> Result<ModuleOutput, McpcError> {
     let dockerfile_content = templates::render_dockerfile(module)?;
     output.insert(dockerfile_path, dockerfile_content);
 
+    let seccomp_path = format!("{}/seccomp.json", module.name);
+    let seccomp_profile = crate::validator::generate_seccomp_profile(module)?;
+    let seccomp_content = serde_json::to_string_pretty(&seccomp_profile)
+        .map_err(|e| McpcError::Build(format!("Failed to serialize Seccomp profile: {}", e)))?;
+    output.insert(seccomp_path, seccomp_content);
+
     let helm_files = templates::render_helm_chart(module)?;
     for (rel_path, content) in helm_files {
         let full_path = format!("{}/{}", module.name, rel_path);

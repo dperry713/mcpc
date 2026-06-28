@@ -32,16 +32,37 @@ If you are running on Windows, Tauri requires the Microsoft C++ Build Tools and 
 
 ## 🚀 Installation & Setup
 
-Clone the repository and build the workspace:
+Clone the repository:
 
 ```bash
 git clone https://github.com/your-org/mcpc.git
 cd mcpc
 ```
 
-### 1. The CLI
+### 📦 Automated Installation Wizards
 
-You can install the CLI globally on your system using cargo:
+MCPC comes with native, automated wizards to compile, package, and register the orchestrator and GUI onto your system PATH:
+
+#### 🪟 Windows (Batch / PowerShell / Native EXE)
+Choose the method that fits your environment:
+- **Double-Click Batch script**: Execute [install.bat](file:///c:/Users/d/automata/mcpc/install.bat) directly.
+- **PowerShell Wizard**: Run `.\install.ps1` to scan prerequisites, compile release builds, and update environment paths.
+- **Native Installer EXE**: Compile and run the standalone Rust binary:
+  ```bash
+  cargo build --release --bin install_wizard
+  .\target\release\install_wizard.exe
+  ```
+
+#### 🍎 Linux & macOS (Bash)
+Execute the installer script:
+```bash
+chmod +x install.sh
+./install.sh
+```
+
+### 1. Manual CLI Installation
+
+Alternatively, install the CLI globally using cargo:
 
 ```bash
 cargo install --path .
@@ -52,28 +73,24 @@ Verify the installation:
 mcpc --help
 ```
 
-### 2. The GUI Dashboard
+### 2. Manual GUI Dashboard Development
 
-To run the interactive Visual Editor dashboard in development mode:
+To run the Visual Editor dashboard in development mode:
 
 ```bash
 cd mcpc-gui
 npm install
 npm run tauri dev
 ```
-*(On first run, Cargo will compile the Tauri backend which may take a few minutes. Subsequent runs will be nearly instant).*
+*(On first run, Cargo compiles the Tauri backend. Subsequent launches are nearly instant).*
 
-### 3. Generate Install Wizards (Production)
-
-MCPC includes built-in configurations to automatically generate highly professional Install Wizards for your current operating system (MSI/EXE for Windows, DMG for macOS, DEB/AppImage for Linux).
-
-To package the GUI into a native installer:
-
-```bash
-cd mcpc-gui
-npm run build:installers
-```
-The finished installers will be output to `mcpc-gui/src-tauri/target/release/bundle/`.
+### 🛡️ Enterprise Hardening Features
+MCPC automatically embeds robust zero-trust policies inside every generated build:
+- **gVisor Sandboxed Runtimes**: Container workloads are configured with `runtimeClassName: gvisor` to isolate host kernel access.
+- **Least-Privilege Seccomp Profiles**: Automatically generates a custom `seccomp.json` inside each module to filter system calls and deny high-privilege operations like `ptrace` and `mount` by default.
+- **Dynamic NetworkPolicies**: Automatically creates Kubernetes `NetworkPolicy` ingress/egress rules computed directly from the visual edge graph.
+- **Bearer Token Auth & Reverse Proxying**: Gateway endpoints terminate TLS and perform cryptographic JWT signature and audience validation, acting as a secure reverse proxy router.
+- **OpenTelemetry distributed tracing**: Decoupled trace logging exporting directly to OTLP collector endpoints.
 
 ---
 
@@ -112,6 +129,12 @@ If you prefer the terminal, the MCPC compiler is fully equipped to handle your w
   mcpc clean
   ```
   Removes the generated `automata-mcp` workspace.
+
+- **Audit Compliance**:
+  ```bash
+  mcpc audit
+  ```
+  Generates a comprehensive JSON-formatted compliance report summarizing container hardening signatures, NetworkPolicies, and RuntimeClass mappings.
 
 ---
 
